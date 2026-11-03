@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>훈련 응급환자 조치·보고 지원</title>
+<!-- MGRS 변환 라이브러리 -->
+<script src="https://cdn.jsdelivr.net/npm/mgrs@2.1.0/dist/mgrs.min.js"></script>
+<style>
+  :root{
+    --army:#4b5320; --army-dark:#2d3315; --accent:#c9a227;
+    --bg:#f3f4ee; --card:#fff; --danger:#b22222; --ok:#2e7d32;
+    --warn:#e67e22; --text:#1b1b1b; --muted:#666; --line:#dcdcd2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+  header{background:var(--army-dark);color:#fff;padding:12px 16px;position:sticky;top:0;z-index:20;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+  header h1{margin:0;font-size:17px;letter-spacing:.5px}
+  header .sub{font-size:12px;opacity:.85;margin-top:2px}
+  nav.steps{display:flex;overflow-x:auto;background:var(--army);gap:4px;padding:6px;position:sticky;top:56px;z-index:19}
+  nav.steps button{flex:0 0 auto;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:14px;padding:6px 10px;font-size:12px;cursor:pointer;white-space:nowrap}
+  nav.steps button.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700}
+  main{padding:14px;max-width:760px;margin:0 auto;padding-bottom:80px}
+  section.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  section.card h2{margin:0 0 10px;font-size:16px;color:var(--army-dark);border-bottom:2px solid var(--accent);padding-bottom:6px}
+  h3.sub{font-size:13px;color:var(--army-dark);margin:14px 0 6px;padding-left:6px;border-left:3px solid var(--accent)}
+  label{display:block;font-size:13px;color:var(--muted);margin:8px 0 4px}
+  input[type=text],input[type=tel],input[type=datetime-local],select,textarea{
+    width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;font-size:14px;font-family:inherit;background:#fff
+  }
+  textarea{min-height:80px;resize:vertical}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .chk{display:flex;align-items:flex-start;gap:8px;padding:6px 0;font-size:14px}
+  .chk input{margin-top:3px;transform:scale(1.2);flex-shrink:0}
+  .chk.urgent label{color:var(--danger)}
+  .btn{display:inline-block;background:var(--army);color:#fff;border:none;padding:10px 14px;border-radius:6px;font-size:14px;cursor:pointer;margin:4px 4px 4px 0}
+  .btn.accent{background:var(--accent);color:#000;font-weight:700}
+  .btn.danger{background:var(--danger)}
+  .btn.ghost{background:#fff;color:var(--army-dark);border:1px solid var(--army-dark)}
+  .btn.sm{padding:6px 10px;font-size:12px}
+  .pill{display:inline-block;padding:3px 9px;border-radius:12px;font-size:12px;font-weight:700}
+  .pill.urgent{background:var(--danger);color:#fff}
+  .pill.normal{background:var(--ok);color:#fff}
+  .pill.na{background:#999;color:#fff}
+  .hide{display:none}
+  .note{font-size:12px;color:var(--muted);background:#fafaf3;border-left:3px solid var(--accent);padding:8px 10px;margin:8px 0;border-radius:4px}
+  .warnbox{font-size:13px;background:#fff3e0;border-left:3px solid var(--warn);padding:10px;margin:8px 0;border-radius:4px}
+  .big{font-size:16px;font-weight:700}
+  .cpr-box{text-align:center;padding:16px;border:2px dashed var(--danger);border-radius:10px;margin-top:10px;background:#fff}
+  .cpr-dot{width:80px;height:80px;border-radius:50%;background:#eee;margin:10px auto;transition:background .06s,transform .06s;display:flex;align-items:center;justify-content:center;font-weight:700;color:#555}
+  .cpr-dot.on{background:var(--danger);transform:scale(1.18);color:#fff}
+  .cpr-count{font-size:28px;font-weight:900;color:var(--danger);margin:8px 0}
+  .quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .quick button{background:#eee;border:1px solid var(--line);border-radius:14px;padding:5px 10px;font-size:12px;cursor:pointer}
+  .quick button:hover{background:var(--accent)}
+  .report-box{background:#fffdf3;border:1px solid var(--accent);border-radius:8px;padding:12px;white-space:pre-wrap;font-size:14px;line-height:1.75;font-family:ui-monospace,Menlo,Consolas,monospace}
+  a.tel{display:inline-block;background:var(--danger);color:#fff;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:700;margin:4px 4px 4px 0}
+  details{background:#fafaf3;border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:6px 0}
+  details summary{cursor:pointer;font-weight:700;font-size:13px;color:var(--army-dark)}
+  details[open] summary{margin-bottom:8px}
+  .step-list{font-size:13px;padding-left:20px;margin:6px 0}
+  .step-list li{margin:4px 0}
+  .ascii{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:#2d3315;color:#c9a227;padding:10px;border-radius:6px;white-space:pre;overflow-x:auto;line-height:1.4}
+  table.log{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+  table.log th,table.log td{border:1px solid var(--line);padding:6px;text-align:left;vertical-align:top}
+  table.log th{background:var(--army);color:#fff}
+  /* 운반법 이미지 스타일 */
+  .carry-img{display:block;max-width:100%;width:100%;max-height:260px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px;margin:8px 0}
+  .carry-desc{font-size:13px;line-height:1.7;margin:6px 0 10px;padding:8px 10px;background:#fafaf3;border-radius:4px}
+  .img-placeholder{display:flex;align-items:center;justify-content:center;height:120px;background:#f0f0e8;border:2px dashed var(--line);border-radius:6px;color:var(--muted);font-size:12px;text-align:center;padding:10px;margin:8px 0}
+  footer{text-align:center;font-size:11px;color:var(--muted);padding:16px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🪖 훈련 응급환자 조치·보고 지원</h1>
+  <div class="sub">관찰통제관용 현장 체크리스트 · MGRS · CPR 메트로놈 · 자동보고</div>
+</header>
+
+<nav class="steps" id="stepNav">
+  <button data-step="0" class="active">① 내 정보</button>
+  <button data-step="1">② 환자발생</button>
+  <button data-step="2">③ 상태확인/분류</button>
+  <button data-step="3">④ 현장응급처치</button>
+  <button data-step="4">⑤ 후송수단 판단</button>
+  <button data-step="5">⑥ 신고/보고</button>
+  <button data-step="6">📒 기록</button>
+</nav>
+
+<main>
+
+<!-- 0. 내 정보 -->
+<section class="card step" data-step="0">
+  <h2>① 내 정보 (사전 저장)</h2>
+  <div class="row">
+    <div><label>직책</label><input id="myRole" type="text" value="대항군처 관찰통제관"></div>
+    <div><label>계급/성명</label><input id="myName" type="text" value="상사 강인성"></div>
+  </div>
+  <div class="row">
+    <div><label>TRS 번호</label><input id="myTRS" type="text" value="5120"></div>
+    <div><label>핸드폰</label><input id="myPhone" type="tel" value="010-2228-7891"></div>
+  </div>
+  <div><label>상대 호출명 (보고 대상)</label><input id="callTo" type="text" value="안전실"></div>
+  <button class="btn accent" onclick="saveMe()">💾 내 정보 저장</button>
+  <div class="note">입력값은 이 기기 브라우저(로컬스토리지)에만 저장됩니다. 공용기기 사용 시 주의하세요.</div>
+</section>
+
+<!-- 1. 환자발생 -->
+<section class="card step hide" data-step="1">
+  <h2>② 환자 발생 정보</h2>
+  <div class="row">
+    <div><label>환자 소속</label><input id="pUnit" type="text" placeholder="예: 1대대 2중대"></div>
+    <div><label>계급/성명</label><input id="pName" type="text" placeholder="예: 상병 홍길동"></div>
+  </div>
+  <div class="row">
+    <div><label>훈련자 ID</label><input id="pId" type="text" placeholder="훈련자 ID"></div>
+    <div><label>발생시간</label><input id="pTime" type="datetime-local"></div>
+  </div>
+
+  <label>현 위치 (MGRS)</label>
+  <input id="pMGRS" type="text" placeholder="예: 52SCH1234567890 (GPS 받으면 자동 입력)">
+  <div class="quick">
+    <button onclick="getGPS()">📍 GPS로 MGRS 자동변환</button>
+    <span id="gpsOut" style="font-size:12px;color:var(--muted);align-self:center"></span>
+  </div>
+  <div class="note">GPS → MGRS 자동 변환(mgrs.js). 음영지역/실내에서는 부정확할 수 있으니 PU 지도로 교차확인하세요.</div>
+
+  <label>주요 증상/호소 내용</label>
+  <textarea id="pSymptom" placeholder="예: 이동 중 두통 호소, 어지러움"></textarea>
+</section>
+
+<!-- 2. 상태확인/분류 -->
+<section class="card step hide" data-step="2">
+  <h2>③ 환자 상태 확인 및 분류</h2>
+
+  <h3 class="sub">🚨 생체징후 · 의식 (아래 하나라도 ✔ → 긴급)</h3>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_consciousNo"><label for="c_consciousNo">의식 없음 (무반응, AVPU의 U)</label></div>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_confused"><label for="c_confused">정신 혼미 / 횡설수설 / 지남력 저하</label></div>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_pupil"><label for="c_pupil">동공 확장 또는 좌우 비대칭·반사 소실</label></div>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_breathNo"><label for="c_breathNo">호흡 없음 / 분당 10회 미만 또는 30회 초과</label></div>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_pulseNo"><label for="c_pulseNo">맥박 없음 / 매우 약함 / 분당 120 초과</label></div>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_chest"><label for="c_chest">흉통·호흡곤란·청색증</label></div>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_seizure"><label for="c_seizure">경련 / 발작 / 반복 구토</label></div>
+
+  <h3 class="sub">🩸 외상 (아래 하나라도 ✔ → 긴급)</h3>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_bleed"><label for="c_bleed">심한 출혈 (지혈되지 않거나 사지 절단)</label></div>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_fracture"><label for="c_fracture">개방성 골절 / 변형 / 다발성 골절 의심</label></div>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_head"><label for="c_head">두부·척추·흉복부 외상 의심</label></div>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_burn"><label for="c_burn">2도 이상 화상 / 체표면 10% 이상 화상</label></div>
+
+  <h3 class="sub">☀️ 하계 / 열손상 (아래 하나라도 ✔ → 긴급)</h3>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_heatstroke"><label for="c_heatstroke">열사병 의심: 체온 40℃ 이상, 발한 정지, 의식저하</label></div>
+  <div class="chk"><input type="checkbox" id="c_heatexh"><label for="c_heatexh">열탈진: 심한 발한, 어지러움, 두통, 메스꺼움</label></div>
+  <div class="chk"><input type="checkbox" id="c_heatcramp"><label for="c_heatcramp">열경련: 근육 경련, 과도한 발한</label></div>
+
+  <h3 class="sub">❄️ 동계 / 한랭손상 (아래 하나라도 ✔ → 긴급)</h3>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_hypoth"><label for="c_hypoth">저체온증(중등도 이상): 심한 떨림 정지, 의식저하, 체온 32℃ 이하</label></div>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_frostbite"><label for="c_frostbite">동상(3도 이상): 피부 흑변, 수포, 감각 완전소실</label></div>
+  <div class="chk"><input type="checkbox" id="c_nfci"><label for="c_nfci">비동결 한랭손상(참호족): 발이 창백/푸르딩딩, 감각둔화·통증</label></div>
+
+  <h3 class="sub">🐍 교상 / 자상 / 알레르기 (아래 하나라도 ✔ → 긴급)</h3>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_snake"><label for="c_snake">뱀 교상 (독사 의심 포함)</label></div>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_anaphy"><label for="c_anaphy">아나필락시스: 벌 쏘임·식품 후 호흡곤란·전신 두드러기·실신</label></div>
+  <div class="chk"><input type="checkbox" id="c_bug"><label for="c_bug">일반 벌레 자상·진드기 교상 (국소 반응)</label></div>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_animal"><label for="c_animal">야생동물(멧돼지·개 등) 교상</label></div>
+
+  <h3 class="sub">💊 기타</h3>
+  <div class="chk urgent"><input type="checkbox" class="urg" id="c_poison"><label for="c_poison">독성물질 노출/흡입·CBR 의심</label></div>
+  <div class="chk"><input type="checkbox" id="c_minor"><label for="c_minor">경미한 찰과상·타박상 (의식·보행 정상)</label></div>
+
+  <div style="margin-top:14px;padding:10px;background:#f8f8f0;border-radius:6px">
+    <span class="big">자동 분류: </span>
+    <span id="triage" class="pill na">미평가</span>
+    <div id="triageReason" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
+  </div>
+  <div class="note">긴급 체크 중 하나라도 ✔ 되면 <b>긴급환자</b>로 자동 분류됩니다. 최종 판단은 현장 관찰통제관이 우선합니다.</div>
+</section>
+
+<!-- 3. 현장응급처치 -->
+<section class="card step hide" data-step="3">
+  <h2>④ 현장 응급처치 체크</h2>
+
+  <h3 class="sub">공통 조치</h3>
+  <div class="chk"><input type="checkbox"><label>현장 안전 확보 (2차사고 방지)</label></div>
+  <div class="chk"><input type="checkbox"><label>개인장구류 제거 (총기·탄입대·방탄·헬멧)</label></div>
+  <div class="chk"><input type="checkbox"><label>피복 제거 (하계 또는 상처 확인 필요시)</label></div>
+  <div class="chk"><input type="checkbox"><label>기도확보 및 호흡·맥박 확인(AVPU)</label></div>
+  <div class="chk"><input type="checkbox"><label>그늘로 이동 (하계)</label></div>
+  <div class="chk"><input type="checkbox"><label>체온 유지 (동계: 담요·은박보온포)</label></div>
+
+  <h3 class="sub">🩸 지혈 (단계별)</h3>
+  <details open>
+    <summary>요약 — 직접압박 → 압박붕대 → 지혈대(CAT)</summary>
+    <ol class="step-list">
+      <li><b>직접압박</b> 5분 이상 → 안 멎으면 ↓</li>
+      <li><b>압박붕대</b>로 고정 → 그래도 안 멎으면 ↓</li>
+      <li><b>지혈대(CAT)</b> 적용 + <b>적용시각 기록</b></li>
+    </ol>
+  </details>
+
+  <details>
+    <summary>📖 상세 가이드 보기</summary>
+    <h4 style="margin:8px 0 4px">1단계 · 직접압박</h4>
+    <ul class="step-list">
+      <li>깨끗한 거즈·멸균 패드(없으면 깨끗한 천)로 상처 부위를 손바닥으로 강하게 누른다.</li>
+      <li>최소 5분 이상 지속 압박. 중간에 떼서 확인하지 않는다(응고 방해).</li>
+      <li>가능하면 출혈 부위를 심장보다 높게 든다.</li>
+    </ul>
+    <h4 style="margin:8px 0 4px">2단계 · 압박붕대</h4>
+    <ul class="step-list">
+      <li>압박을 유지한 상태에서 탄력붕대로 상처 위를 단단히 감는다.</li>
+      <li>붕대 아래쪽 손·발의 색·맥박·감각을 확인(과도 압박 시 괴사 위험).</li>
+      <li>붕대에 피가 배어나오면 떼지 말고 그 위에 덧대어 추가로 감는다.</li>
+    </ul>
+    <h4 style="margin:8px 0 4px">3단계 · 지혈대(CAT) 적용</h4>
+    <ul class="step-list">
+      <li>적용 대상: 사지(팔·다리)의 대량출혈이 직접압박·압박붕대로 멎지 않을 때, 또는 절단상.</li>
+      <li>위치: 상처에서 심장 쪽으로 <b>5~7cm 위</b>. 관절 위는 피하고 관절보다 몸통 쪽에 적용.</li>
+      <li>윈드라스(막대)를 돌려 출혈이 멈추고 원위부 맥박이 사라질 때까지 조인다.</li>
+      <li><b>적용 시각을 환자 이마 또는 지혈대 라벨에 매직으로 기록</b> (예: TQ 14:35).</li>
+      <li>한번 적용한 지혈대는 임의로 풀지 않는다 — 의료진 인계 시까지 유지.</li>
+    </ul>
+    <div class="ascii">
+   심장쪽                   상처
+  ───┬──[ CAT ]──5~7cm──[ 상처 ]──→ 말단
+     │  (관절 피해 몸통쪽)
+    </div>
+    <div class="warnbox">⚠ 지혈대는 "생명 > 사지"의 원칙. 머뭇거리지 말고 적용. 단, 2시간 초과 시 사지 괴사 위험이 급증하므로 시각 기록 必.</div>
+  </details>
+
+  <h3 class="sub">💓 CPR 메트로놈 (110 BPM · 성인 기준)</h3>
+  <div class="cpr-box">
+    <div class="cpr-dot" id="cprDot">PUSH</div>
+    <div class="cpr-count" id="cprCount">0</div>
+    <div style="font-size:13px;color:var(--muted)">가슴 중앙(흉골 아래쪽 1/2), 5~6cm 깊이, 완전 이완<br>30회 압박 : 2회 인공호흡 (1주기)</div>
+    <div style="margin-top:10px">
+      <button class="btn danger" onclick="toggleCPR()" id="cprBtn">▶ 시작</button>
+      <button class="btn ghost sm" onclick="resetCPR()">↺ 리셋</button>
+    </div>
+    <div style="margin-top:8px;font-size:12px">
+      <label style="display:inline-block;margin-right:10px"><input type="checkbox" id="cprSound" checked> 🔊 소리</label>
+      <label style="display:inline-block;margin-right:10px"><input type="checkbox" id="cprVib" checked> 📳 진동</label>
+      <label style="display:inline-block"><input type="checkbox" id="cprFlash" checked> 💡 깜빡임</label>
+    </div>
+  </div>
+
+  <h3 class="sub">상황별 추가 조치</h3>
+  <details>
+    <summary>☀️ 열사병 / 열탈진</summary>
+    <ul class="step-list">
+      <li>즉시 그늘·시원한 곳으로 이동, 피복(특히 전투복 상의·방탄) 제거.</li>
+      <li>목·겨드랑이·사타구니에 찬물·얼음팩 적용(큰 혈관 냉각).</li>
+      <li>의식 있으면 소량씩 수분(이온음료) 공급, 의식 저하 시 금식.</li>
+      <li>열사병(의식저하+고열)은 즉시 긴급후송.</li>
+    </ul>
+  </details>
+  <details>
+    <summary>❄️ 저체온 / 동상 / 참호족</summary>
+    <ul class="step-list">
+      <li>젖은 피복 제거, 담요·침낭·은박보온포로 체간 중심 보온.</li>
+      <li>의식 있으면 따뜻한(뜨겁지 않은) 당분 음료.</li>
+      <li>동상 부위는 비비지 말 것(조직손상). 40℃ 전후 미지근한 물로 서서히 재가온.</li>
+      <li>참호족: 발 건조·거상, 보온, 마찰 금지.</li>
+    </ul>
+  </details>
+  <details>
+    <summary>🐍 뱀 교상</summary>
+    <ul class="step-list">
+      <li>환자 안정·눕히고 교상 부위를 심장보다 낮게.</li>
+      <li>교상 부위 반지·시계·조이는 것 제거(부종 대비).</li>
+      <li>입으로 빨거나 째지 말 것. 얼음 금지.</li>
+      <li>교상 부위 상부를 넓은 붕대로 가볍게 압박(동맥은 막지 않을 정도).</li>
+      <li>가능하면 뱀의 사진 촬영(종 식별), 접근은 금지.</li>
+    </ul>
+  </details>
+  <details>
+    <summary>🐝 벌 쏘임 / 아나필락시스</summary>
+    <ul class="step-list">
+      <li>침은 신용카드 등으로 긁어내듯 제거(짜지 말 것 — 독낭이 터져 독이 더 퍼짐).</li>
+      <li>호흡곤란·전신두드러기·실신 시 즉시 긴급후송, 에피펜 보유 시 대퇴외측에 투여.</li>
+      <li><b>쇼크 자세</b>: 환자를 바닥에 똑바로 눕히고 다리를 20~30cm 높이로 들어 올림(쿠션·배낭·접힌 담요 등으로 받침). 머리는 바닥에 그대로 둠.</li>
+      <li>단, <b>의식 없음·구토 시</b> → 쇼크자세 대신 <b>회복자세(옆으로 눕히기)</b>로 기도 흡인 방지</li>
+      <li><b>호흡곤란이 심해 앉아야 숨을 쉴 수 있을 때</b> → 눕히지 말고 <b>반쯤 앉은 자세</b> 유지</li>
+      <li><b>척추·골반·다리 골절 의심</b> → 다리 거상 금지, 그대로 눕힌 상태로 관찰</li>
+    </ul>
+  </details>
+  <details>
+    <summary>🦟 진드기 교상</summary>
+    <ul class="step-list">
+      <li>핀셋으로 머리 부분을 피부에 밀착해 수직으로 서서히 뽑는다.</li>
+      <li>물린 부위·일시 기록(쯔쯔가무시·SFTS 등 잠복기 관찰).</li>
+      <li>발열·발진 시 즉시 의무대 보고.</li>
+    </ul>
+  </details>
+</section>
+
+<!-- 4. 후송수단 -->
+<section class="card step hide" data-step="4">
+  <h2>⑤ 후송수단 판단</h2>
+  <div class="chk"><input type="checkbox" id="t_amb"><label for="t_amb">AMB(앰뷸런스) 현장 진입 가능</label></div>
+  <div class="chk"><input type="checkbox" id="t_road"><label for="t_road">최기 경로로 도로까지 환자 운반 가능</label></div>
+  <div class="chk"><input type="checkbox" id="t_carry"><label for="t_carry">환자 운반 가용 수단 확보 (들것·인력)</label></div>
+  <div class="chk"><input type="checkbox" id="t_hoist"><label for="t_hoist">현 위치에서 헬기 호이스트 후송 가능 (개활지·수목)</label></div>
+  <div class="chk"><input type="checkbox"><label>헬기 유도용 연막수류탄 휴대</label></div>
+  <div class="chk"><input type="checkbox"><label>위치 확인용 PU(지도) 휴대</label></div>
+
+  <label>최기 도로 / 후송 지점</label>
+  <input id="pRoute" type="text" placeholder="예: ○○능선 임도, ○○삼거리">
+
+  <details>
+    <summary>📖 환자 운반법 상세 가이드 (수단 없을 때)</summary>
+
+    <div class="warnbox" style="margin-top:8px">
+      <b>⚠ 공통 원칙</b><br>
+      ① 척추손상 의심 시 함부로 움직이지 말 것(통나무굴리기 참고)<br>
+      ② 들어올릴 때는 허리가 아닌 <b>다리 힘</b>으로, 발은 어깨너비<br>
+      ③ 환자와 최대한 밀착해서 중심 유지<br>
+      ④ 리더는 환자 <b>머리 쪽</b>에 서서 구령·관찰<br>
+      ⑤ 평지는 <b>다리 방향</b>이 앞, 계단·언덕 오를 때는 <b>머리 방향</b>이 앞 (내려올 때는 반대)
+    </div>
+
+    <h4 style="margin:14px 0 6px;color:var(--danger)">🚨 1. 응급 끌기법 (화재·2차사고 등 즉시 대피)</h4>
+    <img src="images/carry_drag.jpg" alt="응급 끌기법" class="carry-img" onerror="this.replaceWith(imgPlaceholder('carry_drag.jpg'))">
+    <div class="carry-desc">
+      <b>어깨 끌기</b>: 환자 뒤쪽에 자리잡고 양 겨드랑이에 팔을 넣어 양 손목을 교차해 잡는다. 구조자의 상박으로 환자의 목·머리를 받친 상태에서 <b>척추 방향으로 일직선</b>으로 끌어당긴다.<br>
+      <b>발목 끌기</b>: 매끄러운 바닥·짧은 거리에서만. 머리가 바닥에 끌리므로 가급적 피한다.<br>
+      <b>옷깃 끌기</b>: 어깨·목 부위 옷을 잡고 당긴다. 질긴 전투복에 효과적.
+    </div>
+    <div class="warnbox">응급 끌기는 <b>즉시 생명이 위험한 상황</b>(화재·붕괴·추가공격)에서만. 척추손상 가능성이 있어도 위험지역에서는 끌어내는 게 우선.</div>
+
+    <h4 style="margin:14px 0 6px">🚶 2. 부축법 (의식 있고 보행 가능 · 하지 경상)</h4>
+    <img src="images/carry_support.jpg" alt="부축법" class="carry-img" onerror="this.replaceWith(imgPlaceholder('carry_support.jpg'))">
+    <div class="carry-desc">
+      ① 환자의 <b>다친 쪽</b>에 구조자가 선다.<br>
+      ② 환자의 팔을 구조자의 어깨 위로 돌려 손목을 잡는다.<br>
+      ③ 반대쪽 팔로 환자의 허리를 감싸 안는다.<br>
+      ④ 환자의 <b>안쪽 발</b>과 구조자의 <b>바깥쪽 발</b>이 동시에 나가도록 보조를 맞춘다.<br>
+      ⚠ 호흡곤란·심장질환 환자는 부적절(가슴 압박됨).
+    </div>
+
+    <h4 style="margin:14px 0 6px">🎒 3. 업기 · 소방관식 운반 (1인 · 중단거리)</h4>
+    <div class="carry-desc">
+      <b>업기(피기백)</b>: 의식 있는 환자. 환자가 구조자 등에 매달리면 구조자가 양 허벅지를 받치고 선다.<br><br>
+      <b>소방관식 운반(Fireman's Carry)</b>: 의식 없거나 보행 불가.<br>
+      ① 환자를 일으켜 세우고(또는 앉힌 상태) 구조자가 한쪽 무릎을 꿇는다.<br>
+      ② 환자의 <b>한 손목을 잡고 구조자의 어깨에 걸친다</b>.<br>
+      ③ 구조자의 머리를 환자의 겨드랑이 밑으로 넣어 <b>환자 몸이 어깨에 가로로 걸치게</b> 한다.<br>
+      ④ 환자의 다리 사이로 구조자의 팔을 넣어 반대 손목까지 함께 잡는다.<br>
+      ⑤ 다리 힘으로 일어선다.<br>
+      ⚠ 척추·골반 손상 의심 시 금지. 평시에 반드시 실습으로 숙달 필요.
+    </div>
+
+    <h4 style="margin:14px 0 6px">👐 4. 2인 안장법 (네손걸침 · 양팔받침 · 전후운반)</h4>
+    <img src="images/carry_saddle.jpg" alt="안장법" class="carry-img" onerror="this.replaceWith(imgPlaceholder('carry_saddle.jpg'))">
+    <div class="carry-desc">
+      <b>네손걸침(안장법)</b>: 두 구조자가 마주 서서 서로의 손목을 교차해 잡아 사각형(의자 모양)을 만든다. 환자는 두 구조자의 어깨를 잡고 그 위에 앉는다.<br><br>
+      <b>양팔받침</b>: 두 구조자가 환자의 양옆에 서서 한 손은 환자의 등을, 한 손은 허벅지 밑을 받친다. 서로의 손목을 환자 뒤·밑에서 맞잡는다.<br><br>
+      <b>전후운반</b>: 한 구조자는 환자의 겨드랑이 밑에서 양팔로 가슴을 안고, 다른 구조자는 환자의 양 무릎 밑을 들어올린다. 좁은 통로에 유리.
+    </div>
+
+    <h4 style="margin:14px 0 6px">🪑 5. 의자 운반법 (좁은 계단·복도)</h4>
+    <img src="images/carry_chair.jpg" alt="의자 운반법" class="carry-img" onerror="this.replaceWith(imgPlaceholder('carry_chair.jpg'))">
+    <div class="carry-desc">
+      환자를 튼튼한 의자에 앉히고 안전띠·끈으로 몸통을 고정한다. 한 구조자는 등받이 위를, 다른 구조자는 의자 다리를 잡고 운반한다. 들것이 들어가지 못하는 <b>좁은 계단·회전구간</b>에 유용. 의식 명료하고 호흡 안정된 환자에게만 사용.
+    </div>
+
+    <h4 style="margin:14px 0 6px">🛏 6. 들것 운반법 (3~4인 · 가장 안전)</h4>
+    <img src="images/carry_stretcher1.jpg" alt="들것 운반법 1" class="carry-img" onerror="this.replaceWith(imgPlaceholder('carry_stretcher1.jpg'))">
+    <img src="images/carry_stretcher2.jpg" alt="들것 운반법 2" class="carry-img" onerror="this.replaceWith(imgPlaceholder('carry_stretcher2.jpg'))">
+    <div class="carry-desc">
+      <b>즉석 들것 만들기</b> (수단 없을 때):<br>
+      ① <b>판초우의 + 소총 2정</b>: 판초우의를 펼쳐 소총 2정을 평행하게 놓고 양 끝을 접어 소총을 감싼다. 환자 체중으로 접힌 부분이 눌려 풀리지 않는다.<br>
+      ② <b>담요 + 긴 막대 2개</b>: 담요를 펴고 막대를 담요의 1/3 지점에 놓고 접어 올린다.<br>
+      ③ <b>문짝·판자</b>: 척추손상 의심 환자에게 가장 적합(단단함).<br><br>
+      <b>사용 전 반드시 체중 테스트</b>: 더 무거운 사람이 올라가 흔들어 본다.<br><br>
+      <b>운반 방향</b>: 평지는 다리가 앞, 계단·언덕 오를 때는 머리가 앞, 내려올 때는 다리가 앞(단, 다리 출혈 시 반대).<br>
+      <b>리더는 환자 머리쪽</b>에서 구령과 상태 관찰.
+    </div>
+
+    <h4 style="margin:14px 0 6px;color:var(--danger)">🪵 7. 통나무굴리기(Log-roll) · 척추손상 의심</h4>
+    <div class="carry-desc">
+      ① <b>리더(머리쪽 구조자)가 환자의 머리·목을 양손으로 고정</b>해 중립 유지. 리더의 구령에 모든 동작을 맞춘다.<br>
+      ② 2~3명이 환자의 어깨·골반·무릎에 손을 댄다.<br>
+      ③ 리더 구령 "하나, 둘, 셋"에 맞춰 <b>머리-목-몸통-다리를 한 축으로</b> 동시에 돌린다.<br>
+      ④ 환자의 등 뒤에 척추고정판(또는 문짝·판자)을 밀어넣는다.<br>
+      ⑤ 다시 구령에 맞춰 환자를 고정판 위로 눕힌다.<br>
+      ⑥ 머리 양옆에 수건·배낭 등으로 고정, 끈으로 몸통을 묶는다.
+    </div>
+    <div class="warnbox">⚠ 척추손상 의심 징후: 추락·차량사고, 두부외상, 목·등 통증, 사지 저림·마비, 의식저하. 하나라도 있으면 통나무굴리기 적용.</div>
+
+    <h4 style="margin:16px 0 4px">🎥 참고 학습 영상 (평시 숙지용)</h4>
+    <div style="font-size:12px;color:var(--muted)">훈련장에서는 통신이 안 될 수 있으니 평상시에 미리 시청해 두세요.</div>
+    <ul class="step-list">
+      <li><a href="https://www.youtube.com/results?search_query=환자+운반법+부축법+소방관식" target="_blank">환자 운반법(부축법·소방관식) 영상 검색</a></li>
+      <li><a href="https://www.youtube.com/results?search_query=척추손상+통나무굴리기+log+roll" target="_blank">통나무굴리기(Log-roll) 영상 검색</a></li>
+      <li><a href="https://www.youtube.com/results?search_query=즉석+들것+만들기+판초우의" target="_blank">판초우의 즉석 들것 만들기 영상 검색</a></li>
+      <li><a href="https://www.youtube.com/results?search_query=군대+들것+운반+4인" target="_blank">군 들것 4인 운반 영상 검색</a></li>
+    </ul>
+
+    <div style="font-size:11px;color:var(--muted);margin-top:14px;padding-top:8px;border-top:1px dashed var(--line)">
+      ※ 운반법 참고 사진 출처: 네이버 블로그 '발렌시아' <a href="https://m.blog.naver.com/wpsrkxkq88/222056793847" target="_blank">원문 보기</a> · 교육·내부 참고 목적
+    </div>
+  </details>
+
+  <div id="transportRec" class="warnbox hide"></div>
+</section>
+
+<!-- 5. 신고/보고 -->
+<section class="card step hide" data-step="5">
+  <h2>⑥ 신고 수단 및 보고</h2>
+  <div class="chk"><input type="checkbox" id="s_phone"><label for="s_phone">핸드폰 통신 가능</label></div>
+  <div class="chk"><input type="checkbox" id="s_mountain"><label for="s_mountain">산악지역 / 통신 음영지역</label></div>
+  <div id="reportMeans" class="warnbox"></div>
+
+  <div style="margin:10px 0">
+    <a class="tel" href="tel:9830119">📞 983-0119 (군)</a>
+    <a class="tel" href="tel:119">📞 119 (민간/산악)</a>
+  </div>
+
+  <h3 class="sub">📻 보고 문안 (자동 생성)</h3>
+  <button class="btn accent" onclick="genReport()">🔄 문안 생성/갱신</button>
+  <button class="btn ghost sm" onclick="copyReport()">📋 복사</button>
+  <button class="btn ghost sm" onclick="smsReport()">💬 문자</button>
+  <button class="btn ghost sm" onclick="shareReport()">↗ 공유(카톡 등)</button>
+  <div id="reportOut" class="report-box" style="margin-top:8px">문안 생성 버튼을 눌러 주세요.</div>
+
+  <div style="margin-top:14px;text-align:center">
+    <button class="btn danger" onclick="saveLog()">📒 이 환자 기록 저장</button>
+  </div>
+</section>
+
+<!-- 6. 기록 -->
+<section class="card step hide" data-step="6">
+  <h2>📒 저장된 환자 기록</h2>
+  <div class="note">브라우저 로컬에만 저장됩니다. 민감정보 포함 — 주기적으로 확인 후 수동 삭제하세요.</div>
+  <div>
+    <button class="btn ghost sm" onclick="renderLog()">🔄 새로고침</button>
+    <button class="btn ghost sm" onclick="exportLog()">⬇ CSV 내보내기</button>
+    <button class="btn danger sm" onclick="clearLog()">🗑 전체 삭제</button>
+  </div>
+  <div id="logArea"></div>
+</section>
+
+<div style="text-align:center;margin:16px 0">
+  <button class="btn ghost" onclick="resetCase()">🧹 현재 환자정보 초기화 (내정보 유지)</button>
+</div>
+
+</main>
+<footer>※ 본 앱은 현장 보조 도구입니다. 최종 판단은 지휘관·의무요원의 지시에 따릅니다.</footer>
+
+<script>
+// ===== 이미지 플레이스홀더 =====
+function imgPlaceholder(filename){
+  const div = document.createElement('div');
+  div.className = 'img-placeholder';
+  div.innerHTML = `📷 사진 준비 중<br><small>images 폴더에 <b>${filename}</b> 파일을 넣으면 자동 표시됩니다</small>`;
+  return div;
+}
+
+// ===== 단계 네비게이션 =====
+const nav = document.getElementById('stepNav');
+nav.addEventListener('click', e=>{
+  if(e.target.tagName!=='BUTTON') return;
+  const s = e.target.dataset.step;
+  [...nav.querySelectorAll('button')].forEach(b=>b.classList.toggle('active', b.dataset.step===s));
+  document.querySelectorAll('section.step').forEach(sec=>{
+    sec.classList.toggle('hide', sec.dataset.step!==s);
+  });
+  if(s==='6') renderLog();
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+
+// ===== 내 정보 저장/복원 =====
+const MY = ['myRole','myName','myTRS','myPhone','callTo'];
+function saveMe(){
+  MY.forEach(id=>localStorage.setItem(id, document.getElementById(id).value));
+  alert('저장되었습니다.');
+}
+window.addEventListener('load',()=>{
+  MY.forEach(id=>{
+    const v = localStorage.getItem(id);
+    if(v!==null) document.getElementById(id).value = v;
+  });
+  const now = new Date(Date.now()-new Date().getTimezoneOffset()*60000);
+  document.getElementById('pTime').value = now.toISOString().slice(0,16);
+});
+
+// ===== GPS → MGRS 자동 변환 =====
+function getGPS(){
+  const out = document.getElementById('gpsOut');
+  if(!navigator.geolocation){ out.textContent='이 기기는 GPS 미지원'; return; }
+  out.textContent='📡 측정 중...';
+  navigator.geolocation.getCurrentPosition(
+    p=>{
+      const lat = p.coords.latitude, lon = p.coords.longitude;
+      let mgrs = '';
+      try{
+        mgrs = window.mgrs.forward([lon, lat], 5);
+      }catch(e){ mgrs = '변환실패'; }
+      document.getElementById('pMGRS').value = mgrs;
+      out.textContent = `✅ 위도 ${lat.toFixed(5)}, 경도 ${lon.toFixed(5)} (오차 ±${Math.round(p.coords.accuracy)}m)`;
+    },
+    e=>{ out.textContent='❌ GPS 실패: '+e.message; },
+    {enableHighAccuracy:true, timeout:10000, maximumAge:0}
+  );
+}
+
+// ===== 긴급 자동 분류 =====
+function updateTriage(){
+  const urgentChecks = [...document.querySelectorAll('input.urg:checked')];
+  const el = document.getElementById('triage');
+  const reason = document.getElementById('triageReason');
+  const anyChecked = [...document.querySelectorAll('section[data-step="2"] input[type=checkbox]:checked')];
+  if(anyChecked.length===0){
+    el.textContent='미평가'; el.className='pill na'; reason.textContent='';
+    return;
+  }
+  if(urgentChecks.length>0){
+    el.textContent='🚨 긴급환자'; el.className='pill urgent';
+    const labels = urgentChecks.map(c=>document.querySelector(`label[for="${c.id}"]`)?.textContent.split(':')[0].trim()).filter(Boolean);
+    reason.textContent = '사유: ' + labels.join(' / ');
+  }else{
+    el.textContent='일반환자'; el.className='pill normal';
+    reason.textContent = '긴급 요건 없음 — 단, 경과관찰 중 변화 시 재평가';
+  }
+}
+document.querySelectorAll('section[data-step="2"] input[type=checkbox]').forEach(c=>c.addEventListener('change', updateTriage));
+
+// ===== 후송수단 권고 =====
+function updateTransport(){
+  const amb=document.getElementById('t_amb').checked;
+  const road=document.getElementById('t_road').checked;
+  const hoist=document.getElementById('t_hoist').checked;
+  const box=document.getElementById('transportRec');
+  box.classList.remove('hide');
+  let msg='<b>권장 후송방안: </b>';
+  if(amb) msg += 'AMB 현장 진입 → 직접 후송';
+  else if(road) msg += '도수운반으로 최기 도로까지 → AMB 접선';
+  else if(hoist) msg += '헬기 호이스트 후송 (연막 유도, PU로 좌표 송신)';
+  else msg += '⚠ 즉시 후송수단 없음 — 추가 인력·장비 요청 및 운반로 개척';
+  box.innerHTML=msg;
+}
+['t_amb','t_road','t_carry','t_hoist'].forEach(id=>document.getElementById(id).addEventListener('change', updateTransport));
+
+// ===== 신고수단 권고 =====
+function updateReportMeans(){
+  const phone=document.getElementById('s_phone').checked;
+  const mt=document.getElementById('s_mountain').checked;
+  const box=document.getElementById('reportMeans');
+  let msg='';
+  if(mt) msg += '⛰ 산악/음영지역 → <b>119 종합상황실</b>이 더 효과적일 수 있음.<br>';
+  if(phone) msg += '📱 핸드폰 가능 → <b>군 응급환자 신고 앱</b> 우선 사용';
+  else msg += '📻 핸드폰 제한 → <b>TRS 983-0119</b>로 보고';
+  box.innerHTML = msg || '통신 여건을 체크하세요.';
+}
+['s_phone','s_mountain'].forEach(id=>document.getElementById(id).addEventListener('change', updateReportMeans));
+
+// ===== CPR 메트로놈 (110 BPM) =====
+let cprTimer=null, audioCtx=null, cprCount=0;
+function beep(){
+  if(!document.getElementById('cprSound').checked) return;
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.frequency.value=880; g.gain.value=0.18;
+    o.connect(g).connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime+0.06);
+  }catch(e){}
+}
+function tickCPR(){
+  const dot=document.getElementById('cprDot');
+  cprCount++;
+  document.getElementById('cprCount').textContent = cprCount + ' (' + Math.ceil(cprCount/30) + '주기)';
+  if(document.getElementById('cprFlash').checked){
+    dot.classList.add('on');
+    setTimeout(()=>dot.classList.remove('on'),100);
+  }
+  beep();
+  if(document.getElementById('cprVib').checked && navigator.vibrate) navigator.vibrate(60);
+  if(cprCount%30===0){
+    if(navigator.vibrate) navigator.vibrate([100,50,100,50,100]);
+    try{
+      audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.frequency.value=440; g.gain.value=0.2;
+      o.connect(g).connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime+0.3);
+    }catch(e){}
+  }
+}
+function toggleCPR(){
+  const btn=document.getElementById('cprBtn');
+  if(cprTimer){
+    clearInterval(cprTimer); cprTimer=null;
+    btn.textContent='▶ 시작';
+  }else{
+    btn.textContent='⏸ 정지';
+    tickCPR();
+    cprTimer=setInterval(tickCPR, 60000/110);
+  }
+}
+function resetCPR(){
+  if(cprTimer){ clearInterval(cprTimer); cprTimer=null; document.getElementById('cprBtn').textContent='▶ 시작'; }
+  cprCount=0; document.getElementById('cprCount').textContent='0';
+}
+
+// ===== 보고 문안 생성 =====
+function buildReportText(){
+  const v = id=>document.getElementById(id).value.trim();
+  const triageEl = document.getElementById('triage');
+  const triageText = triageEl.textContent.includes('긴급')?'긴급환자':
+                     triageEl.textContent.includes('일반')?'일반환자':'환자';
+  const sym = v('pSymptom') || '증상 확인 중';
+  const route = v('pRoute') || '최기 도로';
+  const consciousNo = document.getElementById('c_consciousNo').checked;
+  const confused = document.getElementById('c_confused').checked;
+  let consciousTxt;
+  if(consciousNo) consciousTxt = '현재 의식이 없고 즉시 응급처치 중이며';
+  else if(confused) consciousTxt = '현재 의식이 혼미하여';
+  else consciousTxt = '현재 의식이 있고 거동이 가능하여';
+  const t = v('pTime').replace('T',' ');
+
+  return `${v('callTo')||'안전실'}, 여기는 ${v('myRole')||'관찰통제관'} ${v('myName')||''}입니다.
+${triageText} 보고드립니다.
+발생시간은 ${t||'(미입력)'}이며, 현 위치는 MGRS ${v('pMGRS')||'(미입력)'}입니다.
+환자는 ${v('pUnit')||'(소속)'} ${v('pName')||'(성명)'}, 훈련자 ID는 ${v('pId')||'(ID)'}이며,
+${sym}을(를) 호소하고 있습니다.
+${consciousTxt} 최기도로인 ${route}(으)로 이동하겠습니다.
+연락은 TRS ${v('myTRS')||''} 또는 핸드폰 ${v('myPhone')||''}로 바랍니다. 이상.`;
+}
+function genReport(){ document.getElementById('reportOut').textContent = buildReportText(); }
+function copyReport(){
+  const t = document.getElementById('reportOut').textContent;
+  if(!t || t.startsWith('문안')){ alert('먼저 문안을 생성하세요.'); return; }
+  navigator.clipboard.writeText(t).then(()=>alert('복사되었습니다.'));
+}
+function smsReport(){
+  const t = document.getElementById('reportOut').textContent;
+  if(!t || t.startsWith('문안')){ alert('먼저 문안을 생성하세요.'); return; }
+  window.location.href = 'sms:?body=' + encodeURIComponent(t);
+}
+function shareReport(){
+  const t = document.getElementById('reportOut').textContent;
+  if(!t || t.startsWith('문안')){ alert('먼저 문안을 생성하세요.'); return; }
+  if(navigator.share) navigator.share({title:'응급환자 보고', text:t}).catch(()=>{});
+  else { navigator.clipboard.writeText(t); alert('공유 미지원 — 클립보드에 복사했습니다. 카카오톡에 붙여넣기 하세요.'); }
+}
+
+// ===== 로컬 기록 저장/표시 =====
+const LOG_KEY = 'patient_logs_v1';
+function saveLog(){
+  const v = id=>document.getElementById(id).value.trim();
+  const triage = document.getElementById('triage').textContent;
+  const entry = {
+    ts: new Date().toISOString(),
+    발생시간: v('pTime'),
+    소속: v('pUnit'), 성명: v('pName'), ID: v('pId'),
+    MGRS: v('pMGRS'), 증상: v('pSymptom'),
+    분류: triage, 최기도로: v('pRoute'),
+    보고문: buildReportText()
+  };
+  const logs = JSON.parse(localStorage.getItem(LOG_KEY)||'[]');
+  logs.unshift(entry);
+  localStorage.setItem(LOG_KEY, JSON.stringify(logs));
+  alert('기록 저장 완료. [📒 기록] 탭에서 확인하세요.');
+}
+function renderLog(){
+  const logs = JSON.parse(localStorage.getItem(LOG_KEY)||'[]');
+  const area = document.getElementById('logArea');
+  if(logs.length===0){ area.innerHTML='<p style="color:var(--muted);font-size:13px">저장된 기록이 없습니다.</p>'; return; }
+  let html = '<table class="log"><thead><tr><th>저장시각</th><th>발생시간</th><th>환자</th><th>MGRS</th><th>분류</th><th>삭제</th></tr></thead><tbody>';
+  logs.forEach((e,i)=>{
+    html += `<tr>
+      <td>${new Date(e.ts).toLocaleString('ko-KR')}</td>
+      <td>${e.발생시간||''}</td>
+      <td>${(e.소속||'')} ${(e.성명||'')}<br><small>${e.ID||''}</small></td>
+      <td>${e.MGRS||''}</td>
+      <td>${e.분류||''}</td>
+      <td><button class="btn danger sm" onclick="delLog(${i})">삭제</button></td>
+    </tr>
+    <tr><td colspan="6"><details><summary>보고문/증상</summary><div style="white-space:pre-wrap;font-size:12px;padding:6px">${(e.보고문||'').replace(/</g,'&lt;')}</div></details></td></tr>`;
+  });
+  html += '</tbody></table>';
+  area.innerHTML = html;
+}
+function delLog(i){
+  if(!confirm('이 기록을 삭제할까요?')) return;
+  const logs = JSON.parse(localStorage.getItem(LOG_KEY)||'[]');
+  logs.splice(i,1);
+  localStorage.setItem(LOG_KEY, JSON.stringify(logs));
+  renderLog();
+}
+function clearLog(){
+  if(!confirm('모든 기록을 삭제할까요? (복구불가)')) return;
+  localStorage.removeItem(LOG_KEY);
+  renderLog();
+}
+function exportLog(){
+  const logs = JSON.parse(localStorage.getItem(LOG_KEY)||'[]');
+  if(logs.length===0){ alert('기록 없음'); return; }
+  const headers = ['저장시각','발생시간','소속','성명','ID','MGRS','증상','분류','최기도로'];
+  const rows = logs.map(e=>[new Date(e.ts).toLocaleString('ko-KR'),e.발생시간,e.소속,e.성명,e.ID,e.MGRS,e.증상,e.분류,e.최기도로]
+    .map(x=>`"${(x||'').toString().replace(/"/g,'""')}"`).join(','));
+  const csv = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download='patient_logs.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ===== 현재 케이스 초기화 =====
+function resetCase(){
+  if(!confirm('현재 환자정보와 체크리스트를 초기화할까요? (저장된 기록은 유지)')) return;
+  document.querySelectorAll('section.step[data-step="1"] input, section.step[data-step="1"] textarea, section.step[data-step="4"] input[type=text], section.step[data-step="5"] input[type=text]').forEach(i=>{ if(i.type!=='checkbox') i.value=''; });
+  document.querySelectorAll('section.step input[type=checkbox]').forEach(c=>c.checked=false);
+  updateTriage(); updateTransport(); updateReportMeans();
+  document.getElementById('reportOut').textContent='문안 생성 버튼을 눌러 주세요.';
+  const now = new Date(Date.now()-new Date().getTimezoneOffset()*60000);
+  document.getElementById('pTime').value = now.toISOString().slice(0,16);
+}
+</script>
+</body>
+</html>
